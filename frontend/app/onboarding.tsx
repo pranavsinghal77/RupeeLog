@@ -162,7 +162,7 @@ export default function Onboarding() {
       </ScrollView>
 
       {/* Progress dots */}
-      <View style={[styles.dots, { bottom: insets.bottom + spacing.xl }]} pointerEvents="none">
+      <View style={[styles.dots, { bottom: insets.bottom + spacing.xl, pointerEvents: "none" }]}>
         {[0, 1, 2].map((i) => (
           <View key={i} style={[styles.dot, i === index ? styles.dotActive : styles.dotInactive]} />
         ))}

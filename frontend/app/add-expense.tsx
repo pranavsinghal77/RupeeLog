@@ -378,7 +378,7 @@ export default function AddExpense() {
       </Animated.View>
 
       {/* Success checkmark overlay */}
-      <Animated.View style={[styles.checkOverlay, checkStyle]} pointerEvents="none">
+      <Animated.View style={[styles.checkOverlay, checkStyle, { pointerEvents: "none" }]}>
         <View style={styles.checkCircle}>
           <Ionicons name="checkmark" size={44} color="#FFFFFF" />
         </View>
