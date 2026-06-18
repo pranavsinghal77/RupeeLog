@@ -120,6 +120,9 @@ export default function Expenses() {
     return list;
   }, [allItems, search, categoryFilter, paymentFilter, sort]);
 
+  const filterActive = categoryFilter !== "All" || paymentFilter !== "All";
+  const filteredTotal = useMemo(() => filtered.reduce((s, e) => s + e.amount, 0), [filtered]);
+
   const rows = useMemo<ListRow[]>(() => {
     const out: ListRow[] = [];
     const seen = new Set<string>();
@@ -265,6 +268,17 @@ export default function Expenses() {
           <Text style={[type.caption, { color: colors.textSecondary }]}>{SORT_LABELS[sort]}</Text>
           <Ionicons name="chevron-down-outline" size={13} color={colors.textTertiary} />
         </Pressable>
+
+        {/* Filtered summary strip (only when a filter is active) */}
+        {filterActive && (
+          <View style={styles.summaryStrip} testID="summary-strip">
+            <Ionicons name="bar-chart-outline" size={15} color={colors.indigoHover} />
+            <Text style={styles.summaryText}>
+              {formatMoney(filteredTotal, symbol)} across {filtered.length} expense
+              {filtered.length === 1 ? "" : "s"}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* List */}
@@ -462,6 +476,25 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+  },
+
+  summaryStrip: {
+    marginTop: spacing.sm,
+    marginHorizontal: spacing.screenH,
+    backgroundColor: "rgba(79,70,229,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(79,70,229,0.25)",
+    borderRadius: radius.icon,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.base,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  summaryText: {
+    fontFamily: font.medium,
+    fontSize: 13,
+    color: colors.textPrimary,
+    marginLeft: spacing.sm,
   },
 
   dateHeader: {
