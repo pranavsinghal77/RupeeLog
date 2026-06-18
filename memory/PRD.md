@@ -13,8 +13,14 @@ Mobile expense tracker "RupeeLog" (React Native + Expo, Android + iOS). Phase 1 
 - 4-point spacing grid, exact color/radius/typography tokens, Ionicons (no emoji), per-category icon bg/color pairs.
 - Reanimated animations: staggered bar grow, bottom-sheet open, screen fade, save checkmark; Haptics throughout.
 
-## Implemented (2026-06-18)
-- **Onboarding** (`app/onboarding.tsx`): 3 swipeable slides, name input, currency modal (INR/USD/EUR/GBP/AED), progress dots, persists name+currency+`onboarding_complete` to storage, navigates to Home; never re-shows.
+## Phase 2A — Expenses List (2026-06-18)
+- **Expenses screen** (`app/(tabs)/expenses.tsx`, wired to Expenses tab): title + dynamic count, real-time search (title/note), single-select category filter chips, independent single-select payment filter chips (incl. BNPL/Cheque), sort modal (Newest/Oldest/Highest/Lowest), FlatList grouped by date headers (Today/Yesterday/"Mon, 16 Jun"), rows with colored category icon + amount + relative time, FAB, empty state.
+- **Swipe actions** via `ReanimatedSwipeable`: left→delete (red, undo toast 4s + deferred DB delete), right→edit (opens Add sheet pre-filled).
+- **db.ts**: added `updateExpense`, `deleteExpense` (web + native).
+- **add-expense.tsx**: edit-mode via route params (`id` ⇒ UPDATE, button "Update Expense").
+- Verified on web: search/filters/sort/add all PASS. Swipe gestures (delete/undo, edit) require native (Expo Go) verification — cannot be simulated by web automation.
+
+## Implemented (2026-06-18) (`app/onboarding.tsx`): 3 swipeable slides, name input, currency modal (INR/USD/EUR/GBP/AED), progress dots, persists name+currency+`onboarding_complete` to storage, navigates to Home; never re-shows.
 - **Home Dashboard** (`app/(tabs)/index.tsx`): greeting w/ stored name, hero card (This Month total/income/expenses/net, Indian number format), animated 6-month bar chart (current month teal), recent expenses list w/ colored category icons + relative time, FAB, custom 4-tab bottom bar.
 - **Add Expense** (`app/add-expense.tsx`): transparentModal bottom sheet w/ drag handle + swipe-to-dismiss, amount display, 4x4 calculator (expression eval), merchant input, horizontal category chips, payment-method wrap chips, date/time native pickers, note, Save (disabled until amount>0) w/ success checkmark; refreshes Home.
 - **Tabs**: Expenses/Groups/Insights = "Coming soon" placeholders.

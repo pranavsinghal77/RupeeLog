@@ -95,13 +95,30 @@ export default function AddExpense() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { height } = useWindowDimensions();
+  const params = useLocalSearchParams<{
+    id?: string;
+    title?: string;
+    amount?: string;
+    category?: string;
+    payment_method?: string;
+    expense_date?: string;
+    expense_time?: string;
+    note?: string;
+  }>();
+  const editingId = params.id ? Number(params.id) : null;
 
-  const [expr, setExpr] = useState("");
-  const [merchant, setMerchant] = useState("");
-  const [category, setCategory] = useState("Food");
-  const [payment, setPayment] = useState("UPI");
-  const [when, setWhen] = useState(new Date());
-  const [note, setNote] = useState("");
+  const [expr, setExpr] = useState(params.amount ? String(params.amount) : "");
+  const [merchant, setMerchant] = useState(params.title ?? "");
+  const [category, setCategory] = useState(params.category ?? "Food");
+  const [payment, setPayment] = useState(params.payment_method ?? "UPI");
+  const [when, setWhen] = useState(() => {
+    if (params.expense_date) {
+      const d = new Date(`${params.expense_date}T${params.expense_time || "00:00"}:00`);
+      if (!isNaN(d.getTime())) return d;
+    }
+    return new Date();
+  });
+  const [note, setNote] = useState(params.note ?? "");
   const [showDate, setShowDate] = useState(false);
   const [showTime, setShowTime] = useState(false);
 
