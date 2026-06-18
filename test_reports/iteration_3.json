@@ -1,0 +1,38 @@
+{
+  "summary": "Phase 2B Groups & Insights frontend testing on Expo web preview at mobile viewport (390x844). ALL 7 review-request features PASS. Tests executed in fresh-localStorage sessions per the agent-to-agent note. (1) Groups empty state renders 'No groups yet' + 'Create your first group' button (testID create-first-group); create-group-submit is correctly disabled until a name is typed; creating 'Goa Trip' produces group-card-1 showing name / ₹0 / 0 expenses / '—'. (2) After creating 3 groups (Goa Trip, Office Lunch, Weekend) via add-group-button, the 4th tap shows upgrade-modal INSTEAD of the create sheet; both maybe-later and upgrade-cta dismiss it. (3) Tapping group-card-1 opens group-detail-screen (back/title/share present), group-total = ₹0, empty list shows 'No expenses in this group yet'. group-add-expense opens action sheet with action-new-expense + action-add-existing; tapping action-add-existing lists existing-expense-1..5 (5 unassigned expenses), tapping existing-expense-3 (Netflix) links it — group-total becomes ₹649, header shows '1 expense · 15 Jun', and group-expense-3 row appears. (4) action-new-expense routes to /add-expense?group_id=1; entering ₹100 via calc keys + save-expense-button returns to group detail with group-total=₹749 and 2 group-expense-<id> rows (auto-linking works). (5) insights-screen renders with month-label 'June 2026'; month-forward has aria-disabled=true on current month; month-back navigates to 'May 2026' and re-enables month-forward; SPENT ₹3,248 / INCOME ₹0 / SAVED -₹3,248 displayed with correct colours. (6) Donut SVG renders with center text 'Shopping ₹1,250'; category list = Shopping 38% / Fuel 25% / Entertainment 20% / Food 11% / Transport 6% (sums to 100%); payment-method animated bars render for Debit Card ₹1,250 / Cash ₹800 / Credit Card ₹649 / UPI ₹549; sparkline shows '5 active spending days' and 'Peak: ₹1,250 on 13 Jun'; smart-insight reads 'UPI is your most-used payment method — 2 transactions this month'. (7) Regression: Phase 1 Home renders correctly (Total spent ₹3,248, monthly overview bars, Recent list). Phase 2A Expenses tab loads 5 seeded rows and add-fab now opens Add Expense screen WITHOUT the previous ReferenceError crash (iter_2 critical bug confirmed fixed by main agent). The pre-existing deprecation warnings ('shadow*' style props, props.pointerEvents) from iteration_2 remain in console but are non-blocking.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "add-expense.tsx pointerEvents",
+        "issue": "Console warning persists: 'props.pointerEvents is deprecated. Use style.pointerEvents'. Carried over from iteration_2 — non-blocking. Reference: /app/frontend/app/add-expense.tsx (Animated.View check overlay)."
+      },
+      {
+        "component": "Multiple files (web shadow polyfill)",
+        "issue": "Console warning persists: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' Web-only deprecation in react-native-web; non-blocking but should be migrated."
+      }
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_3.json"],
+  "action_items": [
+    "(Optional, carry-over) Replace deprecated `pointerEvents` prop with `style={{ pointerEvents: 'none' }}` in /app/frontend/app/add-expense.tsx to silence the warning.",
+    "(Optional, carry-over) Migrate `shadow*` style props to `boxShadow` for web compatibility.",
+    "(Manual) Verify native expo-haptics + native Share on iOS/Android — both are exercised on web but render as no-ops/fallback dialogs."
+  ],
+  "critical_code_review_comments": [
+    "groups/index.tsx FREE_LIMIT=3 is hard-coded; OK for now but consider lifting to a constants file alongside other gating values.",
+    "groups/[id].tsx AddExistingSheet uses useFocusEffect to refresh items only on 'visible' change; this works because the screen owns focus, but if the parent navigates while sheet is open the list may go stale — acceptable for current flow.",
+    "insights.tsx peakIdx defaults to 0 when all dailyTotals are 0, but peakValue gating (peakValue > 0) prevents misleading 'Peak: ₹0 on 1 Jun' from rendering — verified.",
+    "insights.tsx isCurrent check only compares month/year against new Date() captured once per render; fine for a screen the user does not keep open across midnight, but a stale month-forward enable could theoretically occur at month rollover."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "N/A (not requested)", "frontend": "100% (7 of 7 review-request features pass)" },
+  "seed_data_creation": "None — relied on the 5 expenses seeded by db.ts on first launch (Zomato ₹349 / Petrol ₹800 / Netflix ₹649 / Metro ₹200 / DMart ₹1,250). Groups (Goa Trip, Office Lunch, Weekend) created within each fresh session per the agent-to-agent note.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 2B Groups + Insights verified end-to-end on web preview. localStorage clears between sessions so any group/expense state must be recreated. testIDs exercised: groups-screen, add-group-button, create-first-group, group-name-input, create-group-submit, group-card-<id>, upgrade-modal, upgrade-cta, maybe-later, group-detail-screen, group-back, group-share, group-total, group-add-expense, action-new-expense, action-add-existing, existing-expense-<id>, group-expense-<id>, insights-screen, month-label, month-back, month-forward, smart-insight. Native-only verifications still pending: Share dialog on real device, swipe gestures on Expenses list.",
+  "rca_of_issue": "N/A — no regressions or new bugs found in this iteration. The previous iteration_2 critical ReferenceError (editingId in add-expense.tsx) is confirmed fixed: tapping add-fab now renders the Add Expense screen with save-expense-button visible, and the group action-new-expense flow also opens it cleanly with the group_id query param."
+}

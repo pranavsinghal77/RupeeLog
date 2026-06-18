@@ -99,6 +99,7 @@ export async function initDb(): Promise<void> {
   const db = await getDb();
   await db.execAsync(
     `PRAGMA journal_mode = WAL;
+     PRAGMA foreign_keys = ON;
      CREATE TABLE IF NOT EXISTS expenses (
        id INTEGER PRIMARY KEY AUTOINCREMENT,
        title TEXT NOT NULL,
@@ -113,6 +114,19 @@ export async function initDb(): Promise<void> {
      CREATE TABLE IF NOT EXISTS settings (
        key TEXT PRIMARY KEY NOT NULL,
        value TEXT
+     );
+     CREATE TABLE IF NOT EXISTS groups (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       name TEXT NOT NULL,
+       colour TEXT NOT NULL,
+       created_at TEXT NOT NULL
+     );
+     CREATE TABLE IF NOT EXISTS expense_groups (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       expense_id INTEGER NOT NULL,
+       group_id INTEGER NOT NULL,
+       FOREIGN KEY(expense_id) REFERENCES expenses(id) ON DELETE CASCADE,
+       FOREIGN KEY(group_id) REFERENCES groups(id) ON DELETE CASCADE
      );`,
   );
 
@@ -143,7 +157,7 @@ export async function getAllExpenses(): Promise<Expense[]> {
   return db.getAllAsync<Expense>("SELECT * FROM expenses ORDER BY created_at DESC");
 }
 
-export async function addExpense(e: NewExpense): Promise<void> {
+export async function addExpense(e: NewExpense): Promise<number> {
   const created_at = e.created_at ?? new Date().toISOString();
   if (IS_WEB) {
     const rows = await webRead();
@@ -160,10 +174,10 @@ export async function addExpense(e: NewExpense): Promise<void> {
       created_at,
     });
     await webWrite(rows);
-    return;
+    return id;
   }
   const db = await getDb();
-  await db.runAsync(
+  const res = await db.runAsync(
     "INSERT INTO expenses (title, amount, category, payment_method, expense_date, expense_time, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     e.title,
     e.amount,
@@ -174,6 +188,7 @@ export async function addExpense(e: NewExpense): Promise<void> {
     e.note ?? null,
     created_at,
   );
+  return res.lastInsertRowId;
 }
 
 export async function updateExpense(id: number, e: NewExpense): Promise<void> {
@@ -217,4 +232,196 @@ export async function deleteExpense(id: number): Promise<void> {
   }
   const db = await getDb();
   await db.runAsync("DELETE FROM expenses WHERE id = ?", id);
+}
+
+/* --------------------------------- Groups ------------------------------------ */
+
+export interface Group {
+  id: number;
+  name: string;
+  colour: string;
+  created_at: string;
+}
+
+export interface GroupWithStats extends Group {
+  expense_count: number;
+  total: number;
+  min_date: string | null;
+  max_date: string | null;
+}
+
+interface GroupLink {
+  id: number;
+  expense_id: number;
+  group_id: number;
+}
+
+const WEB_GROUPS_KEY = "rupeelog_groups";
+const WEB_LINKS_KEY = "rupeelog_expense_groups";
+
+async function webReadGroups(): Promise<Group[]> {
+  const raw = await storage.getItem<string>(WEB_GROUPS_KEY, "");
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as Group[];
+  } catch {
+    return [];
+  }
+}
+async function webWriteGroups(rows: Group[]): Promise<void> {
+  await storage.setItem(WEB_GROUPS_KEY, JSON.stringify(rows));
+}
+async function webReadLinks(): Promise<GroupLink[]> {
+  const raw = await storage.getItem<string>(WEB_LINKS_KEY, "");
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as GroupLink[];
+  } catch {
+    return [];
+  }
+}
+async function webWriteLinks(rows: GroupLink[]): Promise<void> {
+  await storage.setItem(WEB_LINKS_KEY, JSON.stringify(rows));
+}
+
+function statsFor(group: Group, links: GroupLink[], byId: Map<number, Expense>): GroupWithStats {
+  const exps = links
+    .filter((l) => l.group_id === group.id)
+    .map((l) => byId.get(l.expense_id))
+    .filter((e): e is Expense => !!e);
+  const total = exps.reduce((s, e) => s + e.amount, 0);
+  const dates = exps.map((e) => e.expense_date).sort();
+  return {
+    ...group,
+    expense_count: exps.length,
+    total,
+    min_date: dates[0] ?? null,
+    max_date: dates[dates.length - 1] ?? null,
+  };
+}
+
+export async function createGroup(name: string, colour: string): Promise<number> {
+  const created_at = new Date().toISOString();
+  if (IS_WEB) {
+    const groups = await webReadGroups();
+    const id = groups.reduce((m, g) => Math.max(m, g.id), 0) + 1;
+    groups.push({ id, name, colour, created_at });
+    await webWriteGroups(groups);
+    return id;
+  }
+  const db = await getDb();
+  const res = await db.runAsync(
+    "INSERT INTO groups (name, colour, created_at) VALUES (?, ?, ?)",
+    name,
+    colour,
+    created_at,
+  );
+  return res.lastInsertRowId;
+}
+
+export async function getGroups(): Promise<GroupWithStats[]> {
+  if (IS_WEB) {
+    const [groups, links, expenses] = await Promise.all([webReadGroups(), webReadLinks(), webRead()]);
+    const byId = new Map(expenses.map((e) => [e.id, e]));
+    return groups
+      .map((g) => statsFor(g, links, byId))
+      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  }
+  const db = await getDb();
+  return db.getAllAsync<GroupWithStats>(
+    `SELECT groups.*, COUNT(eg.expense_id) as expense_count,
+            COALESCE(SUM(e.amount), 0) as total,
+            MIN(e.expense_date) as min_date, MAX(e.expense_date) as max_date
+     FROM groups
+     LEFT JOIN expense_groups eg ON groups.id = eg.group_id
+     LEFT JOIN expenses e ON eg.expense_id = e.id
+     GROUP BY groups.id
+     ORDER BY groups.created_at DESC`,
+  );
+}
+
+export async function getGroupById(id: number): Promise<GroupWithStats | null> {
+  if (IS_WEB) {
+    const [groups, links, expenses] = await Promise.all([webReadGroups(), webReadLinks(), webRead()]);
+    const g = groups.find((x) => x.id === id);
+    if (!g) return null;
+    const byId = new Map(expenses.map((e) => [e.id, e]));
+    return statsFor(g, links, byId);
+  }
+  const db = await getDb();
+  const row = await db.getFirstAsync<GroupWithStats>(
+    `SELECT groups.*, COUNT(eg.expense_id) as expense_count,
+            COALESCE(SUM(e.amount), 0) as total,
+            MIN(e.expense_date) as min_date, MAX(e.expense_date) as max_date
+     FROM groups
+     LEFT JOIN expense_groups eg ON groups.id = eg.group_id
+     LEFT JOIN expenses e ON eg.expense_id = e.id
+     WHERE groups.id = ?
+     GROUP BY groups.id`,
+    id,
+  );
+  return row ?? null;
+}
+
+export async function getGroupExpenses(groupId: number): Promise<Expense[]> {
+  if (IS_WEB) {
+    const [links, expenses] = await Promise.all([webReadLinks(), webRead()]);
+    const ids = new Set(links.filter((l) => l.group_id === groupId).map((l) => l.expense_id));
+    return expenses
+      .filter((e) => ids.has(e.id))
+      .sort((a, b) => (a.expense_date < b.expense_date ? 1 : -1));
+  }
+  const db = await getDb();
+  return db.getAllAsync<Expense>(
+    `SELECT expenses.* FROM expenses
+     JOIN expense_groups ON expenses.id = expense_groups.expense_id
+     WHERE expense_groups.group_id = ?
+     ORDER BY expenses.expense_date DESC`,
+    groupId,
+  );
+}
+
+export async function addExpenseToGroup(expenseId: number, groupId: number): Promise<void> {
+  if (IS_WEB) {
+    const links = await webReadLinks();
+    if (links.some((l) => l.expense_id === expenseId && l.group_id === groupId)) return;
+    const id = links.reduce((m, l) => Math.max(m, l.id), 0) + 1;
+    links.push({ id, expense_id: expenseId, group_id: groupId });
+    await webWriteLinks(links);
+    return;
+  }
+  const db = await getDb();
+  await db.runAsync(
+    "INSERT INTO expense_groups (expense_id, group_id) VALUES (?, ?)",
+    expenseId,
+    groupId,
+  );
+}
+
+export async function getExpensesNotInAnyGroup(): Promise<Expense[]> {
+  if (IS_WEB) {
+    const [links, expenses] = await Promise.all([webReadLinks(), webRead()]);
+    const linked = new Set(links.map((l) => l.expense_id));
+    return expenses
+      .filter((e) => !linked.has(e.id))
+      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  }
+  const db = await getDb();
+  return db.getAllAsync<Expense>(
+    `SELECT * FROM expenses
+     WHERE id NOT IN (SELECT expense_id FROM expense_groups)
+     ORDER BY created_at DESC`,
+  );
+}
+
+export async function deleteGroup(id: number): Promise<void> {
+  if (IS_WEB) {
+    const [groups, links] = await Promise.all([webReadGroups(), webReadLinks()]);
+    await webWriteGroups(groups.filter((g) => g.id !== id));
+    await webWriteLinks(links.filter((l) => l.group_id !== id));
+    return;
+  }
+  const db = await getDb();
+  await db.runAsync("DELETE FROM expense_groups WHERE group_id = ?", id);
+  await db.runAsync("DELETE FROM groups WHERE id = ?", id);
 }

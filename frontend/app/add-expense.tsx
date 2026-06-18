@@ -29,7 +29,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 import { colors, spacing, radius, type, font } from "@/src/theme";
 import { CATEGORIES, PAYMENT_METHODS } from "@/src/categories";
-import { addExpense, updateExpense } from "@/src/db";
+import { addExpense, updateExpense, addExpenseToGroup } from "@/src/db";
 
 const KEYS = [
   ["7", "8", "9", "÷"],
@@ -104,8 +104,10 @@ export default function AddExpense() {
     expense_date?: string;
     expense_time?: string;
     note?: string;
+    group_id?: string;
   }>();
   const editingId = params.id ? Number(params.id) : null;
+  const groupId = params.group_id ? Number(params.group_id) : null;
 
   const [expr, setExpr] = useState(params.amount ? String(params.amount) : "");
   const [merchant, setMerchant] = useState(params.title ?? "");
@@ -221,8 +223,12 @@ export default function AddExpense() {
       note: note.trim() || null,
       created_at: new Date().toISOString(),
     };
-    if (editingId) await updateExpense(editingId, payload);
-    else await addExpense(payload);
+    if (editingId) {
+      await updateExpense(editingId, payload);
+    } else {
+      const newId = await addExpense(payload);
+      if (groupId) await addExpenseToGroup(newId, groupId);
+    }
     checkScale.value = withSequence(
       withTiming(1.2, { duration: 180 }),
       withTiming(1, { duration: 120 }, (f) => {
