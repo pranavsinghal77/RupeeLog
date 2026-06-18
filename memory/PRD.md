@@ -13,6 +13,13 @@ Mobile expense tracker "RupeeLog" (React Native + Expo, Android + iOS). Phase 1 
 - 4-point spacing grid, exact color/radius/typography tokens, Ionicons (no emoji), per-category icon bg/color pairs.
 - Reanimated animations: staggered bar grow, bottom-sheet open, screen fade, save checkmark; Haptics throughout.
 
+## Phase 2B — Groups + Insights (2026-06-18)
+- **Groups tab** = nested Stack (`groups/_layout.tsx`, `index.tsx`, `[id].tsx`): GroupsList (empty state, create-group bottom sheet with 6 colour dots, cards with net/count/date-range, FREE LIMIT gate → Upgrade-to-Pro modal at ≥3 groups). GroupDetail (total header, add-expense action sheet → New expense / Add-from-existing sheet, read-only list, native Share).
+- **Insights tab** (`insights.tsx`): month navigator (no future), SPENT/INCOME/SAVED cards, react-native-svg donut (center top category) + category list with %, animated payment-method bars, daily-spending sparkline (area+peak+axis), smart-insight card (4-rule priority).
+- **db.ts**: groups + expense_groups tables; createGroup/getGroups/getGroupById/getGroupExpenses/addExpenseToGroup/getExpensesNotInAnyGroup/deleteGroup; `addExpense` now returns new id. Web localStorage keys rupeelog_groups + rupeelog_expense_groups.
+- **add-expense.tsx**: optional `group_id` param links a newly-created expense to a group.
+- Installed react-native-svg. Testing agent: all 7 Phase 2B features PASS + Phase 1/2A regression clean.
+
 ## Phase 2A — Expenses List (2026-06-18)
 - **Expenses screen** (`app/(tabs)/expenses.tsx`, wired to Expenses tab): title + dynamic count, real-time search (title/note), single-select category filter chips, independent single-select payment filter chips (incl. BNPL/Cheque), sort modal (Newest/Oldest/Highest/Lowest), FlatList grouped by date headers (Today/Yesterday/"Mon, 16 Jun"), rows with colored category icon + amount + relative time, FAB, empty state.
 - **Swipe actions** via `ReanimatedSwipeable`: left→delete (red, undo toast 4s + deferred DB delete), right→edit (opens Add sheet pre-filled).
