@@ -1,0 +1,29 @@
+{
+  "summary": "Frontend-only smoke test of RupeeLog Phase 1 on the Expo web preview. All 6 user-flow scenarios from the review request PASSED end-to-end. Onboarding (3 slides, name input, currency modal with INR/USD/EUR/GBP/AED, allow access) -> Home shows greeting with stored name 'Alex' and ₹3,248 month total from seeds; reload bypasses onboarding correctly. Home shows hero card (Income/Expenses/Net), 6-month bar chart, and all 5 seeded expenses (Zomato, Petrol, Netflix, Metro, DMart). Tab nav switches between Home/Expenses/Groups/Insights with 'Coming soon' placeholders on the latter three. FAB opens the Add Expense bottom sheet. Calculator builds amount correctly (1->5->0 = ₹150). Save Expense button is disabled at ₹0 and enabled at ₹150. After saving 'Uber ride' (Transport, Cash), it appears at top of Recent and Month total increases from ₹3,248 to ₹3,398 (delta exactly 150). Backdrop tap closes the sheet without persisting the typed amount (₹9 was NOT saved; total stayed at ₹3,398). No red screens, no JS pageerror, only minor RN-web deprecation warnings. No deprecated Expo packages detected (expo-av, expo-barcode-scanner, expo-background-fetch not used).",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "Home FAB shadow", "issue": "Console warning: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' Web-only warning from React Native Web. Reference: /app/frontend/app/(tabs)/index.tsx:312-315 (shadowColor/shadowOffset/shadowOpacity/shadowRadius on .fab) and possibly cardShadow in /app/frontend/src/theme. Native (iOS) still requires shadow* so a Platform.select with boxShadow on web is the proper fix."},
+      {"component": "Onboarding progress dots", "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents'. Reference: /app/frontend/app/onboarding.tsx:165 (View has pointerEvents=\"none\" as a prop). Move to style={{ pointerEvents: 'none' }}."}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Migrate shadow* style props to boxShadow on web (Platform.select) to silence RN-web deprecation warnings (FAB in tabs/index.tsx and any cardShadow definition).",
+    "Replace View pointerEvents prop with style.pointerEvents in onboarding.tsx:165 to silence deprecation warning."
+  ],
+  "critical_code_review_comments": [
+    "All interactive elements have testID, components are properly wrapped in <Text>, dark-theme spacing/8pt grid looks clean. No backend code in scope.",
+    "db.ts cleanly branches Platform.OS === 'web' to a real localStorage-backed store (NOT mocked). Seeds 5 expenses idempotently."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (not in scope)", "frontend": "100% (6/6 scenarios)" },
+  "seed_data_creation": "Cleared localStorage at test start; db.ts auto-seeded 5 expenses (Zomato 349, Petrol 800, Netflix 649, Metro 200, DMart 1250 = ₹3,248). One additional 'Uber ride' ₹150 added during Add Expense test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "App is fully functional on web. Tested via https://rupee-tracker-237.preview.emergentagent.com at 390x844 mobile viewport. Use localStorage.clear() before each test run to reset onboarding + seeds. Key testIDs: onboarding-screen, get-started-button, name-input, currency-selector, currency-option-<CODE>, continue-button, allow-access-button, home-screen, user-name, month-total, expense-row-<id>, tab-home/expenses/groups/insights, add-fab, add-expense-screen, amount-display, calc-key-<k>, category-chip-<Key>, payment-chip-<Method>, merchant-input, save-expense-button, backdrop.",
+  "rca_of_issue": "No bugs found. Only two non-blocking RN-web deprecation warnings (shadow* and pointerEvents prop) which do not affect functionality."
+}
