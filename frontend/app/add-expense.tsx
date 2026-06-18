@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import Animated, {
   useSharedValue,
@@ -29,7 +29,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 import { colors, spacing, radius, type, font } from "@/src/theme";
 import { CATEGORIES, PAYMENT_METHODS } from "@/src/categories";
-import { addExpense } from "@/src/db";
+import { addExpense, updateExpense } from "@/src/db";
 
 const KEYS = [
   ["7", "8", "9", "÷"],
@@ -194,7 +194,7 @@ export default function AddExpense() {
   const save = async () => {
     if (!canSave) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await addExpense({
+    const payload = {
       title: merchant.trim() || category,
       amount,
       category,
@@ -203,7 +203,9 @@ export default function AddExpense() {
       expense_time: fmtTimeLabel(when),
       note: note.trim() || null,
       created_at: new Date().toISOString(),
-    });
+    };
+    if (editingId) await updateExpense(editingId, payload);
+    else await addExpense(payload);
     checkScale.value = withSequence(
       withTiming(1.2, { duration: 180 }),
       withTiming(1, { duration: 120 }, (f) => {
@@ -353,7 +355,9 @@ export default function AddExpense() {
             style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}
             onPress={save}
           >
-            <Text style={[styles.saveBtnText, !canSave && { color: colors.textTertiary }]}>Save Expense</Text>
+            <Text style={[styles.saveBtnText, !canSave && { color: colors.textTertiary }]}>
+              {editingId ? "Update Expense" : "Save Expense"}
+            </Text>
           </Pressable>
         </KeyboardAwareScrollView>
 

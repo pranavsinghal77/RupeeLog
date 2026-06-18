@@ -1,0 +1,63 @@
+{
+  "summary": "Phase 2A Expenses List frontend testing on web preview. PASSED: screen renders with 5 seeded transactions, dynamic count, search ('Net' -> 1, clear -> 5), category single-select filter (Food -> 1), payment single-select filter (UPI -> 2), category+payment AND combine (Food+UPI -> 1), date headers (YESTERDAY, TUE 16 JUN, etc.), FAB present, empty state for 'zzzzz'. CRITICAL FAILURE: tapping the FAB (or any edit action) crashes the Add Expense screen with 'ReferenceError: editingId is not defined' at /app/frontend/app/add-expense.tsx:359:16 — useLocalSearchParams is imported but never called, and `editingId` is referenced on lines 207 and 359 without being declared. This regresses Phase 1 (Add Expense from FAB) AND blocks the new Phase 2A Edit flow entirely. Sort feature also appears not to reorder rows visually in the test run; could not re-verify after the FAB crash because the LogBox red error overlay covered interactions. Swipe-gesture testIDs (delete-<id>, edit-<id>) are present in DOM but force-clicking them via Playwright does not fire onPress (renderRightActions/renderLeftActions are hidden offscreen) — confirmed environment limitation per the request; should be verified manually or on native.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "app/add-expense.tsx",
+        "issue": "ReferenceError: editingId is not defined. `useLocalSearchParams` is imported (line 15) but never called; `editingId` is referenced on lines 207 (`if (editingId) await updateExpense(editingId, payload)`) and 359 (`{editingId ? 'Update Expense' : 'Save Expense'}`). Render crashes the Add Expense screen the moment the FAB is tapped. This blocks BOTH adding a new expense (Phase 1 regression) AND editing via the swipe-right edit action (Phase 2A). Reference: /app/frontend/app/add-expense.tsx:95-100, 207, 359.",
+        "testID": "save-expense-button / add-fab / edit-<id>",
+        "priority": "CRITICAL"
+      },
+      {
+        "component": "(tabs)/expenses.tsx sort",
+        "issue": "After tapping sort-button -> sort-option-highest, the visual order of rows did not change (Zomato/Yesterday still appeared first instead of DMart ₹1,250). Same observation for sort-option-oldest. Sort label in the row updates (modal closes correctly) but list ordering may not be re-applied. NOTE: could not re-verify after FAB crash dialog blocked the UI; main agent should reproduce after fixing the editingId crash. Reference: /app/frontend/app/(tabs)/expenses.tsx:108-119.",
+        "testID": "sort-option-highest / sort-option-oldest",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "FAB -> Add Expense (Phase 1) AND swipe-edit -> Add Expense (Phase 2A)",
+        "issue": "Both flows crash on the new Add Expense screen render due to missing `editingId` declaration. No new expenses can be added and no expense can be edited via the UI.",
+        "affected_testIDs": ["add-fab", "edit-1", "edit-2", "edit-3", "edit-4", "edit-5", "save-expense-button"]
+      },
+      {
+        "flow": "Swipe gestures on web (delete/undo, edit)",
+        "issue": "Browser automation cannot simulate native pan gestures; the renderRightActions/renderLeftActions in ReanimatedSwipeable are not interactable via force-click in Playwright (clicking the delete-<id> element does nothing — count stays at 5, undo-toast never appears). Per the request this is a non-blocking environment limitation. Recommend manual verification on iOS/Android or via Expo Go for delete + undo behavior.",
+        "affected_testIDs": ["delete-3", "undo-toast", "undo-button", "edit-3"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "add-expense.tsx pointerEvents",
+        "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents'. The Animated.View check overlay at line 385 passes pointerEvents as a prop instead of via style. Reference: /app/frontend/app/add-expense.tsx:385."
+      },
+      {
+        "component": "Multiple files",
+        "issue": "Console warning: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' Affects components using shadowColor/shadowOffset/shadowOpacity/shadowRadius on web. Non-blocking but should be migrated to boxShadow on web."
+      }
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_2.json"],
+  "action_items": [
+    "FIX CRITICAL: In /app/frontend/app/add-expense.tsx, call useLocalSearchParams() and derive editingId, e.g. `const params = useLocalSearchParams<{ id?: string; title?: string; amount?: string; category?: string; payment_method?: string; expense_date?: string; expense_time?: string; note?: string; }>(); const editingId = params.id ? Number(params.id) : null;`. Then prefill state in a useEffect from params (merchant, expr, category, payment, when, note) when editingId is set so the edit flow shows the existing values. Without this fix BOTH Add and Edit flows crash.",
+    "Investigate Sort: confirm that selecting sort-option-highest / sort-option-oldest actually re-renders the FlatList in the new order. Code at /app/frontend/app/(tabs)/expenses.tsx:108-119 looks correct, so this may be a rerender/key issue or related to FlatList keying; re-test after fixing editingId.",
+    "Replace deprecated `pointerEvents` prop with `style={{ pointerEvents: 'none' }}` at /app/frontend/app/add-expense.tsx:385.",
+    "(Optional) Migrate shadow* style props to boxShadow for web compatibility to silence the deprecation warning.",
+    "Manually verify swipe-to-delete (with 4s undo toast) and swipe-to-edit on a native device / Expo Go since Playwright cannot simulate pan gestures."
+  ],
+  "critical_code_review_comments": [
+    "/app/frontend/app/add-expense.tsx references `editingId` without declaring it — production runtime ReferenceError. useLocalSearchParams is imported but never used.",
+    "/app/frontend/app/add-expense.tsx does not prefill any of merchant/expr/category/payment/when/note from route params, so even after fixing editingId the edit flow will not display the expense's existing values (only the button label flips to 'Update Expense').",
+    "(tabs)/expenses.tsx — pending delete is committed on unmount/blur via useFocusEffect cleanup. This is a reasonable approach, but if the user backgrounds the app within the 4s undo window on native the delete will still fire — acceptable, just worth flagging."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "N/A (not requested)", "frontend": "~55% (6 of 8 features pass; FAB+edit Add flow broken, sort unverified)" },
+  "seed_data_creation": "None — used the 5 seeded expenses already created by db.ts on first launch.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Re-run after main agent declares editingId and adds param-driven prefill in /app/frontend/app/add-expense.tsx. Verify: (1) tapping add-fab opens Add Expense and Save Expense saves a new row (count 5 -> 6). (2) tapping edit-<id> opens Add Expense with all fields prefilled and button text 'Update Expense'; changing amount and tapping it updates the SAME row (count unchanged). (3) sort-option-highest reorders rows so DMart ₹1,250 is first; sort-option-oldest reverses order. Swipe-based delete/undo cannot be exercised in browser — note as env limitation. Onboarding flow each fresh session: Get Started -> name 'Tester' -> Continue -> Skip for now -> Expenses tab.",
+  "rca_of_issue": "Root cause: /app/frontend/app/add-expense.tsx was edited to add edit-mode support but only the consumer references were added (`editingId` on lines 207, 359 and the import of useLocalSearchParams on line 15). The actual declaration (`const params = useLocalSearchParams(); const editingId = params.id ? Number(params.id) : null;`) and the param-driven state prefill (useEffect setting expr, merchant, category, payment, when, note) were never committed. Reproduction: launch web preview -> complete onboarding -> tap Expenses tab -> tap floating + FAB (testID add-fab). The router navigates to /add-expense which throws `ReferenceError: editingId is not defined` at line 359 during the JSX render of the Save button. Mitigation: add the declaration + prefill block at the top of AddExpense before any JSX referencing editingId is evaluated."
+}

@@ -175,3 +175,46 @@ export async function addExpense(e: NewExpense): Promise<void> {
     created_at,
   );
 }
+
+export async function updateExpense(id: number, e: NewExpense): Promise<void> {
+  if (IS_WEB) {
+    const rows = await webRead();
+    const idx = rows.findIndex((r) => r.id === id);
+    if (idx >= 0) {
+      rows[idx] = {
+        ...rows[idx],
+        title: e.title,
+        amount: e.amount,
+        category: e.category,
+        payment_method: e.payment_method,
+        expense_date: e.expense_date,
+        expense_time: e.expense_time,
+        note: e.note ?? null,
+      };
+      await webWrite(rows);
+    }
+    return;
+  }
+  const db = await getDb();
+  await db.runAsync(
+    "UPDATE expenses SET title=?, amount=?, category=?, payment_method=?, expense_date=?, expense_time=?, note=? WHERE id=?",
+    e.title,
+    e.amount,
+    e.category,
+    e.payment_method,
+    e.expense_date,
+    e.expense_time,
+    e.note ?? null,
+    id,
+  );
+}
+
+export async function deleteExpense(id: number): Promise<void> {
+  if (IS_WEB) {
+    const rows = await webRead();
+    await webWrite(rows.filter((r) => r.id !== id));
+    return;
+  }
+  const db = await getDb();
+  await db.runAsync("DELETE FROM expenses WHERE id = ?", id);
+}
