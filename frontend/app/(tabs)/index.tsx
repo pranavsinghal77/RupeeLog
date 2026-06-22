@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, AppState } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -22,6 +22,7 @@ import { getAllExpenses, addExpense, Expense } from "@/src/db";
 import { storage } from "@/src/utils/storage";
 import { getStreak, updateStreak, StreakData } from "@/src/streak";
 import { getTemplates, deleteTemplate, Template } from "@/src/templates";
+import { applySmartReminder } from "@/src/notifications";
 
 interface MonthBar {
   label: string;
@@ -60,6 +61,15 @@ export default function Home() {
 
   useEffect(() => {
     updateStreak().then(setStreak);
+  }, []);
+
+  // Smart reminder: reconcile tonight's nudge whenever the app becomes active.
+  useEffect(() => {
+    applySmartReminder();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") applySmartReminder();
+    });
+    return () => sub.remove();
   }, []);
 
   useFocusEffect(

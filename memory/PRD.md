@@ -13,6 +13,9 @@ Mobile expense tracker "RupeeLog" (React Native + Expo, Android + iOS). Phase 1 
 - 4-point spacing grid, exact color/radius/typography tokens, Ionicons (no emoji), per-category icon bg/color pairs.
 - Reanimated animations: staggered bar grow, bottom-sheet open, screen fade, save checkmark; Haptics throughout.
 
+## Phase 3A.2 — Smart reminder (2026-06-22)
+- `src/notifications.ts` gained `applySmartReminder()`: when app becomes active and it's after 9:00 PM, if `rupeelog_streak_data.lastLogDate === today` it cancels tonight's nudge, else ensures the 9:30 PM reminder is scheduled. Home runs it on mount + on AppState 'active'. So users who already logged today are never nudged. Logic-only, native-only (web no-op).
+
 ## Phase 3A.1 — Grocery category + Daily reminder (2026-06-22)
 - Added **Grocery** category (basket-outline, icon #86EFAC / bg #1A3A2A) in `src/categories.ts` between Food and Transport — auto-propagates to Add Expense, Add Template, Expenses filters, Insights. Seed "DMart groceries" recategorized Shopping→Grocery.
 - Installed expo-notifications. New `src/notifications.ts`: local DAILY reminder at 21:30 (id rupeelog_daily_reminder, "Don't break your streak! 🔥"). Scheduled on onboarding finish (permission requested after slide 3) and when Settings Notifications toggled ON; cancelled when OFF. If permission denied → Settings toggle shows OFF + greyed. Local-only (no push token/backend). Web = no-op (toggle stays interactive in preview).
