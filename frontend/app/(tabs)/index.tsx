@@ -18,7 +18,7 @@ import Animated, {
 import { colors, spacing, radius, type, font, cardShadow } from "@/src/theme";
 import { getCategory } from "@/src/categories";
 import { formatMoney, shortMoney, relativeTime, formatIndian } from "@/src/format";
-import { getAllExpenses, addExpense, Expense } from "@/src/db";
+import { getAllExpenses, addExpense, Expense, getMonthSummary } from "@/src/db";
 import { storage } from "@/src/utils/storage";
 import { getStreak, updateStreak, StreakData } from "@/src/streak";
 import { getTemplates, deleteTemplate, Template } from "@/src/templates";
@@ -71,6 +71,28 @@ export default function Home() {
     });
     return () => sub.remove();
   }, []);
+
+  // Month-end summary: on the 1st–3rd, show last month's review once.
+  useEffect(() => {
+    (async () => {
+      const today = new Date();
+      if (today.getDate() > 3) return;
+      let py = today.getFullYear();
+      let pm = today.getMonth() - 1;
+      if (pm < 0) {
+        pm = 11;
+        py = today.getFullYear() - 1;
+      }
+      const prevKey = `${py}-${String(pm + 1).padStart(2, "0")}`;
+      const lastShown = await storage.getItem<string>("rupeelog_last_summary_shown", "");
+      if (lastShown === prevKey) return;
+      const summary = await getMonthSummary(py, pm);
+      if (summary.transactionCount >= 1) {
+        await storage.setItem("rupeelog_last_summary_shown", prevKey);
+        router.push({ pathname: "/month-summary", params: { year: String(py), month: String(pm) } });
+      }
+    })();
+  }, [router]);
 
   useFocusEffect(
     useCallback(() => {

@@ -462,3 +462,70 @@ export async function resetAllData(): Promise<void> {
   await Promise.all(keys.map((k) => storage.removeItem(k)));
   await initDb();
 }
+
+/* ----------------------------- Month summary ----------------------------- */
+
+export interface MonthSummary {
+  totalExpenses: number;
+  totalIncome: number;
+  transactionCount: number;
+  topCategory: string | null;
+  biggestDay: string | null; // YYYY-MM-DD
+  categoryBreakdown: { category: string; total: number; percentage: number }[];
+}
+
+function inMonth(e: Expense, year: number, month: number): boolean {
+  const d = new Date(`${e.expense_date}T00:00:00`);
+  return d.getFullYear() === year && d.getMonth() === month;
+}
+
+export async function getMonthSummary(year: number, month: number): Promise<MonthSummary> {
+  const all = await getAllExpenses();
+  const monthItems = all.filter((e) => inMonth(e, year, month));
+  const expenses = monthItems.filter((e) => e.category !== "Income");
+  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+  const totalIncome = monthItems.filter((e) => e.category === "Income").reduce((s, e) => s + e.amount, 0);
+
+  const catMap = new Map<string, number>();
+  expenses.forEach((e) => catMap.set(e.category, (catMap.get(e.category) ?? 0) + e.amount));
+  const categoryBreakdown = Array.from(catMap.entries())
+    .map(([category, total]) => ({
+      category,
+      total,
+      percentage: totalExpenses > 0 ? (total / totalExpenses) * 100 : 0,
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  const dayMap = new Map<string, number>();
+  expenses.forEach((e) => dayMap.set(e.expense_date, (dayMap.get(e.expense_date) ?? 0) + e.amount));
+  let biggestDay: string | null = null;
+  let biggestDayTotal = -1;
+  dayMap.forEach((total, date) => {
+    if (total > biggestDayTotal) {
+      biggestDayTotal = total;
+      biggestDay = date;
+    }
+  });
+
+  return {
+    totalExpenses,
+    totalIncome,
+    transactionCount: monthItems.length,
+    topCategory: categoryBreakdown[0]?.category ?? null,
+    biggestDay,
+    categoryBreakdown,
+  };
+}
+
+export async function getPreviousMonthTotal(year: number, month: number): Promise<number> {
+  let py = year;
+  let pm = month - 1;
+  if (pm < 0) {
+    pm = 11;
+    py = year - 1;
+  }
+  const all = await getAllExpenses();
+  return all
+    .filter((e) => e.category !== "Income" && inMonth(e, py, pm))
+    .reduce((s, e) => s + e.amount, 0);
+}

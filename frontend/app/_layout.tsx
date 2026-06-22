@@ -62,6 +62,10 @@ export default function RootLayout() {
               name="add-template"
               options={{ presentation: "transparentModal", animation: "fade" }}
             />
+            <Stack.Screen
+              name="month-summary"
+              options={{ animation: "fade", gestureEnabled: false }}
+            />
           </Stack>
         </KeyboardProvider>
       </SafeAreaProvider>
