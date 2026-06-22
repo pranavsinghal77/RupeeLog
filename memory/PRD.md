@@ -13,6 +13,13 @@ Mobile expense tracker "RupeeLog" (React Native + Expo, Android + iOS). Phase 1 
 - 4-point spacing grid, exact color/radius/typography tokens, Ionicons (no emoji), per-category icon bg/color pairs.
 - Reanimated animations: staggered bar grow, bottom-sheet open, screen fade, save checkmark; Haptics throughout.
 
+## Phase 3A — Home upgrades + Settings (2026-06-22)
+- **Home (additive only)**: logging streak below greeting (`src/streak.ts`, shown when streak≥2, amber→red at ≥7, "Best: N days"); quick-add Templates row (`src/templates.ts`, chips one-tap log + green toast, long-press delete, free limit 5, dashed Add chip → `add-template.tsx` sheet with calculator; 6th save → ProModal); settings gear → Settings.
+- **Settings** (`app/settings.tsx`, push route): Profile (Name inline-edit → updates Home greeting; Currency picker), Security (App Lock switch — UI only), Preferences (Notifications + SMS switches), Data (Export CSV via Share + toast; Clear all data → confirm → `resetAllData()` → onboarding), About (Version 1.0.0, Privacy modal, Rate via expo-store-review).
+- **db.ts**: added `resetAllData` (drops/recreates tables native, clears localStorage web, wipes settings keys). add-expense calls `updateStreak()` after a new save. Reusable `src/components/ProModal.tsx`.
+- Installed expo-store-review. Storage keys: rupeelog_streak_data, rupeelog_templates, rupeelog_app_lock, rupeelog_notifications, rupeelog_sms_enabled (name/currency reuse existing keys so they reflect on Home).
+- Testing agent: 6/7 PASS; fixed CRITICAL web-only bug (Alert.alert multi-button no-op → Platform-branch to window.confirm) — Clear-data now navigates to onboarding. Removed dead ICON code.
+
 ## Phase 2B — Groups + Insights (2026-06-18)
 - **Groups tab** = nested Stack (`groups/_layout.tsx`, `index.tsx`, `[id].tsx`): GroupsList (empty state, create-group bottom sheet with 6 colour dots, cards with net/count/date-range, FREE LIMIT gate → Upgrade-to-Pro modal at ≥3 groups). GroupDetail (total header, add-expense action sheet → New expense / Add-from-existing sheet, read-only list, native Share).
 - **Insights tab** (`insights.tsx`): month navigator (no future), SPENT/INCOME/SAVED cards, react-native-svg donut (center top category) + category list with %, animated payment-method bars, daily-spending sparkline (area+peak+axis), smart-insight card (4-rule priority).

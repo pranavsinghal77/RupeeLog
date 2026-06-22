@@ -10,6 +10,7 @@ import {
   Modal,
   Alert,
   Share,
+  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -109,19 +110,22 @@ export default function Settings() {
   };
 
   const clearAll = () => {
+    const doClear = async () => {
+      await resetAllData();
+      router.replace("/onboarding");
+    };
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm("This will permanently delete all your expenses, groups, and settings. This cannot be undone.")) {
+        doClear();
+      }
+      return;
+    }
     Alert.alert(
       "Clear all data?",
       "This will permanently delete all your expenses, groups, and settings. This cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete Everything",
-          style: "destructive",
-          onPress: async () => {
-            await resetAllData();
-            router.replace("/onboarding");
-          },
-        },
+        { text: "Delete Everything", style: "destructive", onPress: doClear },
       ],
     );
   };
@@ -359,9 +363,6 @@ export default function Settings() {
     </View>
   );
 }
-
-const ICON: IoniconName = "person-outline";
-void ICON;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
