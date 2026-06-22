@@ -425,3 +425,40 @@ export async function deleteGroup(id: number): Promise<void> {
   await db.runAsync("DELETE FROM expense_groups WHERE group_id = ?", id);
   await db.runAsync("DELETE FROM groups WHERE id = ?", id);
 }
+
+/* ------------------------------ Reset all data ------------------------------ */
+
+export async function resetAllData(): Promise<void> {
+  const keys = [
+    "user_name",
+    "currency_symbol",
+    "currency_code",
+    "onboarding_complete",
+    "rupeelog_streak_data",
+    "rupeelog_templates",
+    "rupeelog_app_lock",
+    "rupeelog_notifications",
+    "rupeelog_sms_enabled",
+  ];
+
+  if (IS_WEB) {
+    await Promise.all([
+      storage.removeItem(WEB_KEY),
+      storage.removeItem(WEB_GROUPS_KEY),
+      storage.removeItem(WEB_LINKS_KEY),
+      ...keys.map((k) => storage.removeItem(k)),
+    ]);
+    await initDb();
+    return;
+  }
+
+  const db = await getDb();
+  await db.execAsync(
+    `DROP TABLE IF EXISTS expense_groups;
+     DROP TABLE IF EXISTS groups;
+     DROP TABLE IF EXISTS expenses;
+     DROP TABLE IF EXISTS settings;`,
+  );
+  await Promise.all(keys.map((k) => storage.removeItem(k)));
+  await initDb();
+}

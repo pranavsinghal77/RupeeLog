@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -12,13 +12,16 @@ import Animated, {
   withSpring,
   Easing,
   FadeIn,
+  FadeOut,
 } from "react-native-reanimated";
 
 import { colors, spacing, radius, type, font, cardShadow } from "@/src/theme";
 import { getCategory } from "@/src/categories";
-import { formatMoney, shortMoney, relativeTime } from "@/src/format";
-import { getAllExpenses, Expense } from "@/src/db";
+import { formatMoney, shortMoney, relativeTime, formatIndian } from "@/src/format";
+import { getAllExpenses, addExpense, Expense } from "@/src/db";
 import { storage } from "@/src/utils/storage";
+import { getStreak, updateStreak, StreakData } from "@/src/streak";
+import { getTemplates, deleteTemplate, Template } from "@/src/templates";
 
 interface MonthBar {
   label: string;
@@ -42,11 +45,21 @@ export default function Home() {
   const [name, setName] = useState("there");
   const [symbol, setSymbol] = useState("₹");
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [streak, setStreak] = useState<StreakData>({ lastLogDate: null, currentStreak: 0, longestStreak: 0 });
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [toast, setToast] = useState("");
+  const [tplMenu, setTplMenu] = useState<Template | null>(null);
 
   const load = useCallback(() => {
     storage.getItem<string>("user_name", "there").then((n) => setName(n ?? "there"));
     storage.getItem<string>("currency_symbol", "₹").then((s) => setSymbol(s ?? "₹"));
     getAllExpenses().then(setExpenses);
+    getStreak().then(setStreak);
+    getTemplates().then(setTemplates);
+  }, []);
+
+  useEffect(() => {
+    updateStreak().then(setStreak);
   }, []);
 
   useFocusEffect(
@@ -54,6 +67,36 @@ export default function Home() {
       load();
     }, [load]),
   );
+
+  const showGreenToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 2000);
+  };
+
+  const logTemplate = async (t: Template) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const now = new Date();
+    const p = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+    await addExpense({
+      title: t.title,
+      amount: t.amount,
+      category: t.category,
+      payment_method: t.paymentMethod,
+      expense_date: `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`,
+      expense_time: `${p(now.getHours())}:${p(now.getMinutes())}`,
+      note: null,
+      created_at: now.toISOString(),
+    });
+    updateStreak().then(setStreak);
+    showGreenToast(`${t.title} logged`);
+    load();
+  };
+
+  const removeTemplate = async (t: Template) => {
+    await deleteTemplate(t.id);
+    setTplMenu(null);
+    getTemplates().then(setTemplates);
+  };
 
   const now = new Date();
   const curMonth = now.getMonth();
@@ -101,10 +144,27 @@ export default function Home() {
               {name}
             </Text>
           </View>
-          <Pressable testID="notification-bell" hitSlop={8}>
-            <Ionicons name="notifications-outline" size={24} color={colors.textSecondary} />
-          </Pressable>
+          <View style={styles.topActions}>
+            <Pressable testID="notification-bell" hitSlop={8}>
+              <Ionicons name="notifications-outline" size={24} color={colors.textSecondary} />
+            </Pressable>
+            <Pressable testID="settings-gear" hitSlop={8} onPress={() => router.push("/settings")}>
+              <Ionicons name="settings-outline" size={22} color={colors.textSecondary} />
+            </Pressable>
+          </View>
         </View>
+
+        {/* Logging streak */}
+        {streak.currentStreak >= 2 && (
+          <View style={styles.streakRow} testID="streak-row">
+            <Ionicons name="flame-outline" size={16} color={streak.currentStreak >= 7 ? "#EF4444" : "#F59E0B"} />
+            <Text style={[styles.streakText, { color: streak.currentStreak >= 7 ? "#EF4444" : "#F59E0B" }]}>
+              {streak.currentStreak}-day streak
+            </Text>
+            <View style={styles.streakDot} />
+            <Text style={styles.streakBest}>Best: {streak.longestStreak} days</Text>
+          </View>
+        )}
 
         {/* Hero card */}
         <Animated.View entering={FadeIn.duration(200)} style={[styles.heroCard, cardShadow]} testID="hero-card">
@@ -146,6 +206,41 @@ export default function Home() {
             ))}
           </View>
         </View>
+
+        {/* Quick-add templates */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginTop: spacing.xl, marginBottom: spacing.md }}
+          contentContainerStyle={{ gap: spacing.sm }}
+        >
+          {templates.map((t) => {
+            const cat = getCategory(t.category);
+            return (
+              <Pressable
+                key={t.id}
+                testID={`template-${t.id}`}
+                style={styles.tplChip}
+                onPress={() => logTemplate(t)}
+                onLongPress={() => setTplMenu(t)}
+              >
+                <View style={styles.tplRow1}>
+                  <Ionicons name={cat.icon} size={14} color={cat.iconColor} />
+                  <Text style={styles.tplTitle} numberOfLines={1}>
+                    {t.title}
+                  </Text>
+                </View>
+                <Text style={styles.tplMeta}>
+                  ₹{formatIndian(t.amount)} · {t.paymentMethod}
+                </Text>
+              </Pressable>
+            );
+          })}
+          <Pressable testID="add-template-chip" style={styles.tplAdd} onPress={() => router.push("/add-template")}>
+            <Ionicons name="add-outline" size={14} color={colors.indigoHover} />
+            <Text style={styles.tplAddText}>Add</Text>
+          </Pressable>
+        </ScrollView>
 
         {/* Recent */}
         <View style={styles.recentHeader}>
@@ -200,6 +295,34 @@ export default function Home() {
       >
         <Ionicons name="add-outline" size={28} color="#FFFFFF" />
       </Pressable>
+
+      {/* Green success toast */}
+      {toast !== "" && (
+        <Animated.View
+          entering={FadeIn.duration(250)}
+          exiting={FadeOut.duration(250)}
+          style={[styles.greenToast, { bottom: insets.bottom + 90 }]}
+          testID="green-toast"
+        >
+          <Text style={styles.greenToastText}>✓ {toast}</Text>
+        </Animated.View>
+      )}
+
+      {/* Template long-press menu */}
+      <Modal visible={!!tplMenu} transparent animationType="fade" onRequestClose={() => setTplMenu(null)}>
+        <Pressable style={styles.menuBackdrop} onPress={() => setTplMenu(null)}>
+          <View style={styles.menuSheet}>
+            <Pressable style={styles.menuOption} testID="delete-template" onPress={() => tplMenu && removeTemplate(tplMenu)}>
+              <Ionicons name="trash-outline" size={18} color={colors.expense} />
+              <Text style={[styles.menuText, { color: colors.expense }]}>Delete template</Text>
+            </Pressable>
+            <View style={styles.menuDivider} />
+            <Pressable style={styles.menuOption} onPress={() => setTplMenu(null)}>
+              <Text style={styles.menuText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -240,6 +363,63 @@ function Bar({ bar, maxBar, symbol, index }: { bar: MonthBar; maxBar: number; sy
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  topActions: { flexDirection: "row", alignItems: "center", gap: spacing.base },
+
+  streakRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm, marginBottom: spacing.xs },
+  streakText: { fontFamily: font.medium, fontSize: 13 },
+  streakDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: colors.textTertiary, marginHorizontal: spacing.xs },
+  streakBest: { fontFamily: font.regular, fontSize: 12, color: colors.textTertiary },
+
+  tplChip: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.icon,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  tplRow1: { flexDirection: "row", alignItems: "center", gap: 4 },
+  tplTitle: { fontFamily: font.semibold, fontSize: 12, color: colors.textPrimary, maxWidth: 80, marginLeft: 4 },
+  tplMeta: { fontFamily: font.regular, fontSize: 11, color: colors.textSecondary, marginTop: 2 },
+  tplAdd: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: radius.icon,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "rgba(79,70,229,0.4)",
+  },
+  tplAddText: { fontFamily: font.medium, fontSize: 12, color: colors.indigoHover },
+
+  greenToast: {
+    position: "absolute",
+    left: spacing.screenH,
+    right: spacing.screenH,
+    zIndex: 999,
+    backgroundColor: "rgba(16,185,129,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(16,185,129,0.3)",
+    borderRadius: radius.icon,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.base,
+    alignItems: "center",
+  },
+  greenToastText: { fontFamily: font.medium, fontSize: 13, color: colors.textPrimary },
+
+  menuBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  menuSheet: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: radius.large,
+    borderTopRightRadius: radius.large,
+    paddingVertical: spacing.sm,
+    paddingBottom: spacing.xl,
+  },
+  menuOption: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.base, paddingHorizontal: spacing.xl },
+  menuText: { fontFamily: font.medium, fontSize: 15, color: colors.textPrimary },
+  menuDivider: { height: 1, backgroundColor: colors.divider, marginHorizontal: spacing.xl },
 
   heroCard: {
     marginTop: spacing.lg,

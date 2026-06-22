@@ -53,8 +53,13 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="onboarding" />
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="settings" />
             <Stack.Screen
               name="add-expense"
+              options={{ presentation: "transparentModal", animation: "fade" }}
+            />
+            <Stack.Screen
+              name="add-template"
               options={{ presentation: "transparentModal", animation: "fade" }}
             />
           </Stack>

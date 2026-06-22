@@ -30,6 +30,7 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { colors, spacing, radius, type, font } from "@/src/theme";
 import { CATEGORIES, PAYMENT_METHODS } from "@/src/categories";
 import { addExpense, updateExpense, addExpenseToGroup } from "@/src/db";
+import { updateStreak } from "@/src/streak";
 
 const KEYS = [
   ["7", "8", "9", "÷"],
@@ -228,6 +229,7 @@ export default function AddExpense() {
     } else {
       const newId = await addExpense(payload);
       if (groupId) await addExpenseToGroup(newId, groupId);
+      await updateStreak();
     }
     checkScale.value = withSequence(
       withTiming(1.2, { duration: 180 }),

@@ -1,0 +1,50 @@
+{
+  "summary": "Phase 3A (Templates + Streak + Settings) frontend testing on Expo web preview at mobile viewport 390x844. 6 of 7 review-request features PASS; 1 CRITICAL bug found in 'Clear all data'. Verified: (1) Home settings-gear navigates to settings-screen; add-template-chip always visible. (2) Add Template flow opens add-template-screen; save-template-button has aria-disabled=true when amount=0 or name empty, becomes enabled after tcalc-key-1/5/0 + name 'Coffee'; saving returns to Home and a template-<id> chip appears showing 'Coffee ₹150 · UPI'. (3) One-tap log: tapping the Coffee chip created an expense at top of Recent (-₹150 'Just now'), green-toast displayed '✓ Coffee logged' for 2s, and month-total increased from $3,248 → $3,398 (USD because earlier currency change). (4) Template limit: created 5 templates (T1..T5); the 6th Save tap inside add-template-screen rendered pro-modal containing 'Unlimited quick-add templates'; both pro-cta and pro-maybe-later dismiss it; chip count stayed at 5. (5) Settings Profile: edit-name → name-edit-input → confirm-name updated greeting from default to 'Alex'; open-currency → settings-currency-USD → Home now shows $ symbol (THIS MONTH '$3,248'). (6) Settings switches app-lock-switch / notifications-switch / sms-switch toggled, navigated to Home and back, and values persisted (aria-checked retained). (7) Settings Data: export-csv tap did not crash on web (Share is a no-op as expected). open-privacy → 'Your Privacy' modal with privacy-got-it dismiss works. Version row reads '1.0.0'. Long-press on a template chip opens the bottom-sheet menu and delete-template removes the chip. Regression: Home hero/chart/recent intact; Groups + Insights tabs still load (groups-screen, insights-screen).\n\nCRITICAL BUG: Settings clear-data button is a no-op on web preview — react-native Alert.alert() (multi-button) is not rendered by react-native-web, so the 'Delete Everything' destructive callback never fires, resetAllData() is not invoked, and the app does not navigate to onboarding-screen. Verified by both browser dialog listener (zero dialogs fired) and DOM probe (no 'Delete Everything' element present). User has no way to clear data from the web preview.\n\nNon-blocking carry-over warnings: 'shadow*' style props deprecated (react-native-web); 'props.pointerEvents is deprecated' from add-expense.tsx — both noted in iteration_3 and still present.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "settings.tsx clearAll",
+        "issue": "On web, tapping clear-data does nothing — react-native-web does not render Alert.alert() with multiple buttons, so the Delete Everything onPress never fires, resetAllData() is never called, and the app never navigates to onboarding. Reference: /app/frontend/app/settings.tsx:111-127.",
+        "testID": "clear-data",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "settings.tsx stray type annotation",
+        "issue": "Line 363 declares `const ICON: IoniconName = \"person-outline\";` but `IoniconName` is never imported. Babel strips types at runtime so the bundle still works, but tsc/IDE/strict CI will fail. Remove the two dead lines (363-364) or import the proper type from '@expo/vector-icons'. Reference: /app/frontend/app/settings.tsx:363."
+      },
+      {
+        "component": "add-expense.tsx pointerEvents (carry-over)",
+        "issue": "Console warning persists: 'props.pointerEvents is deprecated. Use style.pointerEvents'. Non-blocking. Reference: /app/frontend/app/add-expense.tsx."
+      },
+      {
+        "component": "Multiple files / web shadow polyfill (carry-over)",
+        "issue": "Console warning persists: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' Web-only deprecation; non-blocking."
+      }
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_4.json"],
+  "action_items": [
+    "FIX (HIGH): Replace Alert.alert() in /app/frontend/app/settings.tsx (clearAll) with a cross-platform confirm. Two options: (a) use Platform.OS === 'web' ? window.confirm(...) : Alert.alert(...) and gate the destructive branch on the truthy result; or (b) render a custom RN Modal styled like the Pro modal with Cancel + Delete Everything buttons. After fix, retest that web tap on clear-data → confirms → resetAllData() runs → router.replace('/onboarding') reaches onboarding-screen.",
+    "Remove stray type annotation in /app/frontend/app/settings.tsx:363-364 (`const ICON: IoniconName = ...; void ICON;`) — `IoniconName` is not imported and the lines are dead code.",
+    "(Optional, carry-over) Replace deprecated `pointerEvents` prop with `style={{ pointerEvents: 'none' }}` in add-expense.tsx.",
+    "(Optional, carry-over) Migrate `shadow*` style props to `boxShadow` for web."
+  ],
+  "critical_code_review_comments": [
+    "settings.tsx uses React Native Alert.alert for the destructive Clear-all-data flow, which is silently ignored on react-native-web. Cross-platform confirm needed (see action_items).",
+    "settings.tsx line 363 leaves dead `const ICON: IoniconName = 'person-outline'; void ICON;` — `IoniconName` type is not imported, would fail TypeScript strict build.",
+    "templates.ts addTemplate returns boolean but does not surface why it failed (limit reached vs storage error). Currently OK because caller assumes only the limit case, but a small error type would be cleaner.",
+    "Home index.tsx logTemplate calls updateStreak() then load() — load() also calls getStreak(); minor race but state ends consistent. No fix needed."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "N/A (not requested)", "frontend": "6/7 review-request features pass (~86%); 1 critical bug on web (Clear all data)" },
+  "seed_data_creation": "None new. Relied on db.ts first-launch seed (Zomato ₹349 / Petrol ₹800 / Netflix ₹649 / Metro ₹200 / DMart ₹1,250). Templates and Coffee expense were created within each fresh session for testing.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Phase 3A verified end-to-end on web except Clear-all-data. localStorage clears between browser sessions, so to re-test the template limit recreate 5 templates within one session. After main agent fixes settings.tsx clearAll for web, retest: open /settings → tap clear-data → accept confirm → expect onboarding-screen and rupeelog_templates / expenses cleared from localStorage. testIDs exercised: home-screen, settings-gear, settings-screen, edit-name, name-edit-input, confirm-name, open-currency, settings-currency-USD, app-lock-switch, notifications-switch, sms-switch, export-csv, clear-data, open-privacy, privacy-got-it, add-template-chip, add-template-screen, tcalc-key-*, template-name-input, save-template-button, template-<id>, delete-template, green-toast, pro-modal, pro-cta, pro-maybe-later. Note that on the very first session the streak indicator is hidden (currentStreak=1 after first updateStreak()), which matches the spec.",
+  "rca_of_issue": "Clear-all-data bug RCA: settings.tsx clearAll() calls React Native's Alert.alert(title, msg, [Cancel, Delete Everything]). On native iOS/Android this renders the system alert and invokes onPress. On react-native-web, Alert.alert with multiple buttons is not implemented (the polyfill only handles single-button alerts by calling window.alert, and multi-button calls silently no-op). Result on web: no dialog appears, the destructive onPress never fires, resetAllData() is not invoked, and router.replace('/onboarding') is never called. Reproduction: open /settings on web, tap clear-data — UI does not change, no DOM modal is rendered, page.on('dialog') receives zero events. Mitigation: branch on Platform.OS === 'web' and use window.confirm(...), or render a custom RN Modal for the confirm UI consistently on both platforms."
+}
