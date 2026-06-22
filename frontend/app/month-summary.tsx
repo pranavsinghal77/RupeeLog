@@ -105,7 +105,7 @@ export default function MonthSummaryScreen() {
     <View style={styles.root} testID="month-summary-screen">
       <StatusBar hidden />
       {/* Soft indigo glow */}
-      <View style={styles.glow} pointerEvents="none" />
+      <View style={[styles.glow, { pointerEvents: "none" }]} />
 
       <Animated.View entering={FadeIn.duration(600)} style={{ flex: 1 }}>
         <ScrollView

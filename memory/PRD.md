@@ -13,6 +13,12 @@ Mobile expense tracker "RupeeLog" (React Native + Expo, Android + iOS). Phase 1 
 - 4-point spacing grid, exact color/radius/typography tokens, Ionicons (no emoji), per-category icon bg/color pairs.
 - Reanimated animations: staggered bar grow, bottom-sheet open, screen fade, save checkmark; Haptics throughout.
 
+## Phase 3B — Month-End Summary Screen (2026-06-22)
+- New premium animated screen `app/month-summary.tsx`: hidden status bar, soft indigo glow, requestAnimationFrame count-up hero number, staggered `FadeInDown` sections — header (MONTH YEAR + "Your month in review"), stat cards (Transactions/Top Category/Biggest Day), "Where it went" top-4 category breakdown with animated percent bars, vs-last-month comparison card (shown when prevTotal>0), streak celebration (shown when streak≥3), Share intent + Continue-to-dashboard CTAs.
+- `db.ts`: added `MonthSummary` interface, `getMonthSummary(year, month)` (totals/income/txn count/top category/biggest day/category breakdown) and `getPreviousMonthTotal(year, month)` — month index 0-based; web/native compatible via `getAllExpenses()`.
+- Home (`(tabs)/index.tsx`): trigger on mount — on 1st–3rd of month, if prev month has ≥1 txn and not already shown (`rupeelog_last_summary_shown` key), `router.push('/month-summary')`. Route registered in `_layout.tsx` (fade animation, gestures disabled).
+- Testing agent (iteration_5): PASS — renders populated (June seed, ₹3,248) + empty + edge zero states, count-up, breakdown bars, Share/Continue nav, Home regression clean. Fixed deprecated `pointerEvents` prop → moved to style.
+
 ## Phase 3A.2 — Smart reminder (2026-06-22)
 - `src/notifications.ts` gained `applySmartReminder()`: when app becomes active and it's after 9:00 PM, if `rupeelog_streak_data.lastLogDate === today` it cancels tonight's nudge, else ensures the 9:30 PM reminder is scheduled. Home runs it on mount + on AppState 'active'. So users who already logged today are never nudged. Logic-only, native-only (web no-op).
 
