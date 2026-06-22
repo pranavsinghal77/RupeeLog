@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 export type CategoryKey =
   | "Food"
+  | "Grocery"
   | "Transport"
   | "Rent"
   | "Utilities"
@@ -27,6 +28,7 @@ export interface CategoryDef {
 
 export const CATEGORIES: CategoryDef[] = [
   { key: "Food", icon: "fast-food-outline", bg: "#2D1F3D", iconColor: "#A78BFA" },
+  { key: "Grocery", icon: "basket-outline", bg: "#1A3A2A", iconColor: "#86EFAC" },
   { key: "Transport", icon: "car-outline", bg: "#1A2E4A", iconColor: "#60A5FA" },
   { key: "Rent", icon: "home-outline", bg: "#1A3A2E", iconColor: "#34D399" },
   { key: "Utilities", icon: "flash-outline", bg: "#2E2A1A", iconColor: "#FCD34D" },

@@ -45,7 +45,7 @@ function seedRows(): Expense[] {
     { title: "Petrol fill", amount: 800, category: "Fuel", pm: "Cash", daysAgo: 2 },
     { title: "Netflix", amount: 649, category: "Entertainment", pm: "Credit Card", daysAgo: 3 },
     { title: "Metro recharge", amount: 200, category: "Transport", pm: "UPI", daysAgo: 4 },
-    { title: "DMart groceries", amount: 1250, category: "Shopping", pm: "Debit Card", daysAgo: 5 },
+    { title: "DMart groceries", amount: 1250, category: "Grocery", pm: "Debit Card", daysAgo: 5 },
   ];
   return seeds.map((s, i) => {
     const d = new Date();

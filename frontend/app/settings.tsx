@@ -23,6 +23,12 @@ import { colors, spacing, radius, type, font } from "@/src/theme";
 import { CURRENCIES } from "@/src/format";
 import { getAllExpenses, resetAllData } from "@/src/db";
 import { storage } from "@/src/utils/storage";
+import {
+  getNotificationPermission,
+  requestNotificationPermission,
+  scheduleDailyReminder,
+  cancelDailyReminder,
+} from "@/src/notifications";
 
 const MONTHS_LONG = [
   "January", "February", "March", "April", "May", "June",
@@ -45,6 +51,7 @@ export default function Settings() {
   const [currencyOpen, setCurrencyOpen] = useState(false);
   const [appLock, setAppLock] = useState(false);
   const [notifications, setNotifications] = useState(true);
+  const [notifDisabled, setNotifDisabled] = useState(false);
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [toast, setToast] = useState("");
@@ -56,7 +63,17 @@ export default function Settings() {
       setCurrency(c);
     });
     storage.getItem<boolean>("rupeelog_app_lock", false).then((v) => setAppLock(!!v));
-    storage.getItem<boolean>("rupeelog_notifications", true).then((v) => setNotifications(v ?? true));
+    (async () => {
+      const granted = await getNotificationPermission();
+      const stored = await storage.getItem<boolean>("rupeelog_notifications", true);
+      if (!granted) {
+        setNotifications(false);
+        setNotifDisabled(true);
+      } else {
+        setNotifications(stored ?? true);
+        setNotifDisabled(false);
+      }
+    })();
     storage.getItem<boolean>("rupeelog_sms_enabled", true).then((v) => setSmsEnabled(v ?? true));
   }, []);
 
@@ -85,6 +102,26 @@ export default function Settings() {
     Haptics.selectionAsync();
     setter(val);
     await storage.setItem(key, val);
+  };
+
+  const toggleNotifications = async (val: boolean) => {
+    Haptics.selectionAsync();
+    if (val) {
+      const granted = await requestNotificationPermission();
+      if (!granted) {
+        setNotifications(false);
+        setNotifDisabled(true);
+        return;
+      }
+      setNotifications(true);
+      setNotifDisabled(false);
+      await storage.setItem("rupeelog_notifications", true);
+      await scheduleDailyReminder();
+    } else {
+      setNotifications(false);
+      await storage.setItem("rupeelog_notifications", false);
+      await cancelDailyReminder();
+    }
   };
 
   const exportCsv = async () => {

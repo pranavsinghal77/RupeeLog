@@ -19,6 +19,7 @@ import { useRouter } from "expo-router";
 import { colors, spacing, radius, type, font } from "@/src/theme";
 import { CURRENCIES } from "@/src/format";
 import { storage } from "@/src/utils/storage";
+import { requestNotificationPermission, scheduleDailyReminder } from "@/src/notifications";
 
 export default function Onboarding() {
   const { width } = useWindowDimensions();
@@ -47,6 +48,13 @@ export default function Onboarding() {
     await storage.setItem("currency_symbol", currency.symbol);
     await storage.setItem("currency_code", currency.code);
     await storage.setItem("onboarding_complete", true);
+    const granted = await requestNotificationPermission();
+    if (granted) {
+      await storage.setItem("rupeelog_notifications", true);
+      await scheduleDailyReminder();
+    } else {
+      await storage.setItem("rupeelog_notifications", false);
+    }
     router.replace("/(tabs)");
   };
 
